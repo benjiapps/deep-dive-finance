@@ -1,0 +1,1 @@
+Not tracking finances is a habit that most people don't have built. The process can be really easy with the right tools. This app serves as a one stop shop for tracking income and expenses so that financial freedom is more obtainable.
