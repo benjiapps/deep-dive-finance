@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepDive — Budget Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f8f7;
+      --surface: #ffffff;
+      --surface-2: #f1f0ec;
+      --border: rgba(0,0,0,0.1);
+      --border-strong: rgba(0,0,0,0.18);
+      --text: #1a1a18;
+      --text-2: #6b6b67;
+      --text-3: #a0a09c;
+      --green: #1D9E75;
+      --amber: #BA7517;
+      --red: #E24B4A;
+      --blue: #185FA5;
+      --purple: #534AB7;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1c1c1a;
+        --surface-2: #252523;
+        --border: rgba(255,255,255,0.1);
+        --border-strong: rgba(255,255,255,0.18);
+        --text: #f0efe9;
+        --text-2: #9b9b97;
+        --text-3: #606060;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    .app {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+    .brand { font-size: 18px; font-weight: 600; color: var(--text); }
+    .brand span { color: var(--text-3); font-weight: 400; }
+    .balance-block { text-align: right; }
+    .bal-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+    .bal-val { font-size: 28px; font-weight: 600; line-height: 1.1; }
+    .bal-val.ok  { color: var(--green); }
+    .bal-val.warn{ color: var(--amber); }
+    .bal-val.bad { color: var(--red);   }
+    .prog-bar { width: 120px; height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 6px; margin-left: auto; }
+    .prog-fill { height: 100%; border-radius: 3px; transition: width .4s, background .4s; }
+
+    /* STAT CARDS */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: 14px 12px;
+    }
+    .stat-lbl { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+    .stat-val { font-size: 20px; font-weight: 600; }
+    .stat-val.red   { color: var(--red);   }
+    .stat-val.amber { color: var(--amber); }
+
+    /* SECTION CARD */
+    .section {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    .sec-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-3);
+      margin-bottom: 16px;
+    }
+
+    /* CHART */
+    .chart-wrap { position: relative; width: 100%; height: 200px; margin-bottom: 14px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+    .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); }
+    .leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* FORM */
+    .income-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .income-row label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+    .log-grid-2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; margin-bottom: 8px; }
+    .log-grid-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+    input, select {
+      width: 100%;
+      background: var(--surface-2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 11px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+      appearance: auto;
+    }
+    input:focus, select:focus { border-color: var(--border-strong); }
+    select option { background: var(--surface); }
+
+    .btn {
+      width: 100%;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .82; }
+    .btn:active { opacity: .65; }
+    .btn-ghost {
+      background: none;
+      border: 0.5px solid var(--border);
+      color: var(--text-2);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-ghost:hover { border-color: var(--border-strong); color: var(--text); }
+
+    /* TOAST */
+    .toast {
+      background: #eaf3de;
+      border: 0.5px solid #97C459;
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #3B6D11;
+      margin-bottom: 12px;
+      display: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .toast { background: #1a2f0a; border-color: #3B6D11; color: #97C459; }
+    }
+
+    /* EXPENSE LIST */
+    .exp-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .exp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .exp-left { display: flex; align-items: center; gap: 10px; }
+    .exp-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exp-name { font-size: 13px; color: var(--text); }
+    .exp-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .exp-right { display: flex; align-items: center; gap: 10px; }
+    .exp-amt { font-size: 13px; font-weight: 500; color: var(--text); }
+    .del-btn {
+      background: none; border: none; color: var(--text-3);
+      cursor: pointer; font-size: 15px; line-height: 1;
+      padding: 2px 4px; transition: color .15s; border-radius: 4px;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    /* SUB LIST */
+    .sub-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .sub-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .sub-name { font-size: 13px; color: var(--text); }
+    .sub-cycle { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .sub-amt { font-size: 13px; font-weight: 500; color: var(--amber); }
+
+    /* ADD SUB FORM */
+    .sub-form { margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--border); display: none; }
+    .sub-form.open { display: block; }
+    .sub-form-grid { display: grid; grid-template-columns: 1fr 90px 110px; gap: 8px; margin-bottom: 8px; }
+
+    .empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 18px 0; }
+
+    /* FOOTER */
+    .footer { text-align: center; font-size: 11px; color: var(--text-3); margin-top: 32px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div>
+      <div class="brand">DeepDive <span>/ budget</span></div>
+    </div>
+    <div class="balance-block">
+      <div class="bal-label">Remaining</div>
+      <div class="bal-val ok" id="main-balance">$0</div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%;background:var(--green)"></div></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">Income</div><div class="stat-val" id="s-income">$5,000</div></div>
+    <div class="stat"><div class="stat-lbl">Spent</div><div class="stat-val red" id="s-spent">$0</div></div>
+    <div class="stat"><div class="stat-lbl">Subs/mo</div><div class="stat-val amber" id="s-subs">$0</div></div>
+  </div>
+
+  <!-- CHART -->
+  <div class="section">
+    <div class="sec-title">Spending breakdown</div>
+    <div class="chart-wrap"><canvas id="donut"></canvas></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <!-- LOG EXPENSE -->
+  <div class="section">
+    <div class="sec-title">Log expense</div>
+    <div class="toast" id="toast">✓ Expense added</div>
+    <div class="income-row">
+      <label for="income-input">Monthly income</label>
+      <input type="number" id="income-input" value="5000" min="0" step="100" style="width:110px" />
+      <button class="btn-ghost" onclick="applyIncome()">Apply</button>
+    </div>
+    <div class="log-grid-2">
+      <input type="text" id="exp-name" placeholder="Description" />
+      <input type="number" id="exp-amt" placeholder="$0.00" min="0" step="0.01" />
+    </div>
+    <div class="log-grid-equal">
+      <select id="exp-cat">
+        <option value="Housing">Housing</option>
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Health">Health</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Other">Other</option>
+      </select>
+      <input type="date" id="exp-date" />
+    </div>
+    <button class="btn" onclick="addExpense()">Add expense</button>
+  </div>
+
+  <!-- EXPENSE LIST -->
+  <div class="section">
+    <div class="sec-title">Recent expenses</div>
+    <div id="exp-list"><div class="empty">No expenses yet — add one above</div></div>
+  </div>
+
+  <!-- SUBSCRIPTIONS -->
+  <div class="section">
+    <div class="sec-title">Subscriptions</div>
+    <div id="sub-list"></div>
+    <button class="btn-ghost" style="margin-top:14px;width:100%" onclick="toggleSubForm()">+ Add subscription</button>
+    <div class="sub-form" id="sub-form">
+      <div class="sub-form-grid">
+        <input type="text" id="sub-name-i" placeholder="Service name" />
+        <input type="number" id="sub-amt-i" placeholder="$0" min="0" step="0.01" />
+        <select id="sub-cycle-i">
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+      <button class="btn" onclick="addSub()">Add subscription</button>
+    </div>
+  </div>
+
+  <div class="footer">DeepDive MVP · built with claude.ai</div>
+</div>
+
+<script>
+  let income = 5000;
+  let expenses = [
+    { name:'Rent',        amount:1200, cat:'Housing',   date:'2026-03-01' },
+    { name:'Groceries',   amount:280,  cat:'Food',      date:'2026-03-10' },
+    { name:'Uber',        amount:45,   cat:'Transport',  date:'2026-03-15' },
+    { name:'Gym',         amount:40,   cat:'Health',    date:'2026-03-08' },
+  ];
+  let subs = [
+    { name:'Netflix',     amount:15.99, cycle:'monthly' },
+    { name:'Spotify',     amount:10.99, cycle:'monthly' },
+    { name:'Adobe CC',    amount:54.99, cycle:'monthly' },
+    { name:'iCloud',      amount:2.99,  cycle:'monthly' },
+  ];
+
+  const catColors = {
+    Housing:'#534AB7', Food:'#1D9E75', Transport:'#00b8a0',
+    Health:'#D85A30', Entertainment:'#BA7517', Shopping:'#185FA5', Other:'#888780'
+  };
+
+  let chart = null;
+
+  function subsTotal() {
+    return subs.reduce((a, s) => {
+      if (s.cycle === 'yearly') return a + s.amount / 12;
+      if (s.cycle === 'weekly') return a + s.amount * 4.33;
+      return a + s.amount;
+    }, 0);
+  }
+  function expTotal() { return expenses.reduce((a, e) => a + e.amount, 0); }
+
+  function updateStats() {
+    const spent = expTotal(), remaining = income - spent, subsAmt = subsTotal();
+    const pct = income > 0 ? Math.min(100, Math.round(spent / income * 100)) : 0;
+    document.getElementById('s-income').textContent = '$' + income.toLocaleString();
+    document.getElementById('s-spent').textContent  = '$' + spent.toFixed(0);
+    document.getElementById('s-subs').textContent   = '$' + subsAmt.toFixed(0);
+    const balEl = document.getElementById('main-balance');
+    balEl.textContent = '$' + Math.abs(remaining).toFixed(0) + (remaining < 0 ? ' over' : '');
+    balEl.className = 'bal-val ' + (remaining < 0 ? 'bad' : pct > 75 ? 'warn' : 'ok');
+    const fill = document.getElementById('prog-fill');
+    fill.style.width = pct + '%';
+    fill.style.background = remaining < 0 ? '#E24B4A' : pct > 75 ? '#BA7517' : '#1D9E75';
+  }
+
+  function buildChart() {
+    const catMap = {};
+    expenses.forEach(e => { catMap[e.cat] = (catMap[e.cat] || 0) + e.amount; });
+    const labels = Object.keys(catMap);
+    const data   = labels.map(l => catMap[l]);
+    const colors = labels.map(l => catColors[l] || '#888780');
+    const legendEl = document.getElementById('legend');
+
+    if (!labels.length) {
+      legendEl.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Add expenses to see breakdown</span>';
+      if (chart) { chart.destroy(); chart = null; }
+      return;
+    }
+
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('donut'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data, backgroundColor: colors.map(c => c + 'dd'), borderColor: colors, borderWidth: 1.5, hoverOffset: 6 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '70%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` $${ctx.parsed.toFixed(0)} (${Math.round(ctx.parsed / expTotal() * 100)}%)` } }
+        }
+      }
+    });
+
+    legendEl.innerHTML = labels.map((l, i) =>
+      `<span class="leg-item"><span class="leg-dot" style="background:${colors[i]}"></span>${l} · $${data[i].toFixed(0)}</span>`
+    ).join('');
+  }
+
+  function renderExpenses() {
+    const el = document.getElementById('exp-list');
+    if (!expenses.length) { el.innerHTML = '<div class="empty">No expenses yet — add one above</div>'; return; }
+    const recent = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+    el.innerHTML = recent.map(e => {
+      const idx = expenses.indexOf(e);
+      return `<div class="exp-row">
+        <div class="exp-left">
+          <div class="exp-dot" style="background:${catColors[e.cat] || '#888780'}"></div>
+          <div>
+            <div class="exp-name">${e.name}</div>
+            <div class="exp-meta">${e.cat} &middot; ${e.date}</div>
+          </div>
+        </div>
+        <div class="exp-right">
+          <div class="exp-amt">-$${e.amount.toFixed(2)}</div>
+          <button class="del-btn" onclick="delExp(${idx})">×</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderSubs() {
+    const el = document.getElementById('sub-list');
+    if (!subs.length) { el.innerHTML = '<div class="empty">No subscriptions yet</div>'; return; }
+    el.innerHTML = subs.map((s, i) => `
+      <div class="sub-row">
+        <div>
+          <div class="sub-name">${s.name}</div>
+          <div class="sub-cycle">${s.cycle}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="sub-amt">$${s.amount.toFixed(2)}/mo</div>
+          <button class="del-btn" onclick="delSub(${i})">×</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function addExpense() {
+    const name = document.getElementById('exp-name').value.trim();
+    const amt  = parseFloat(document.getElementById('exp-amt').value);
+    const cat  = document.getElementById('exp-cat').value;
+    const date = document.getElementById('exp-date').value || new Date().toISOString().slice(0, 10);
+    if (!name || isNaN(amt) || amt <= 0) return;
+    expenses.push({ name, amount: amt, cat, date });
+    document.getElementById('exp-name').value = '';
+    document.getElementById('exp-amt').value  = '';
+    showToast();
+    refresh();
+  }
+
+  function delExp(i) { expenses.splice(i, 1); refresh(); }
+
+  function addSub() {
+    const name  = document.getElementById('sub-name-i').value.trim();
+    const amt   = parseFloat(document.getElementById('sub-amt-i').value);
+    const cycle = document.getElementById('sub-cycle-i').value;
+    if (!name || isNaN(amt) || amt <= 0) return;
+    subs.push({ name, amount: amt, cycle });
+    document.getElementById('sub-name-i').value = '';
+    document.getElementById('sub-amt-i').value  = '';
+    document.getElementById('sub-form').classList.remove('open');
+    refresh();
+  }
+
+  function delSub(i) { subs.splice(i, 1); refresh(); }
+
+  function toggleSubForm() {
+    document.getElementById('sub-form').classList.toggle('open');
+  }
+
+  function applyIncome() {
+    const v = parseFloat(document.getElementById('income-input').value);
+    if (!isNaN(v) && v >= 0) { income = v; refresh(); }
+  }
+
+  function showToast() {
+    const t = document.getElementById('toast');
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 2000);
+  }
+
+  function refresh() { updateStats(); buildChart(); renderExpenses(); renderSubs(); }
+
+  document.getElementById('exp-date').value = new Date().toISOString().slice(0, 10);
+  refresh();
+</script>
+</body>
+</html>
